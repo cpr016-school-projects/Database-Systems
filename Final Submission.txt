@@ -1,0 +1,1224 @@
+
+Name: Cameron Rothwell
+Date: 11/2/2019
+
+---------------------Query 1---------------------
+-----Query:
+SELECT distinct sname,age,stname 
+FROM senators 
+WHERE (party = 'Republican' AND age > 50 AND gender= 'Female' ) OR 
+    (party = 'Democrat' AND age < 50 AND gender = 'Male') 
+ORDER BY sname;
+
+-----Results:
+   sname   | age | stname 
+-----------+-----+--------
+ Biden     |  48 | DE
+ Bumpers   |  48 | AR
+ Dodd      |  46 | CT
+ Graham    |  49 | FL
+ Johnston  |  49 | LA
+ Kassebaum |  51 | KS
+ Kerry     |  49 | MA
+ Pryor     |  44 | AR
+ Shelby    |  46 | AL
+(9 rows)
+
+---------------------Query 2---------------------
+-----Query:
+SELECT distinct ST.stname, cname, sname, age, totrev, population 
+FROM states ST 
+    INNER JOIN senators S ON ST.stname = S.stname 
+    INNER JOIN corporations C ON ST.stname = C.stname 
+WHERE S.gender='Female' AND S.party='Democrat' AND (C.totrev>(1.5*ST.population)) 
+ORDER BY stname,cname,sname;
+
+-----Results:
+ stname |           cname           |     sname     | age |   totrev   | population 
+--------+---------------------------+---------------+-----+------------+------------
+ CA     | Acme Mountain Gear        | Feinstein     |  46 |   50000000 |   29760021
+ CA     | Rockemwell Aerospace      | Feinstein     |  46 | 2147483647 |   29760021
+ IL     | Da Bulls Novelty Co.      | Moseley-Braun |  47 |   24235683 |   11430602
+ MD     | Northeast Burro Transport | Mikulski      |  49 |    8347902 |    4781468
+(4 rows)
+
+---------------------Query 3---------------------
+-----Query:
+WITH states as (
+    SELECT S.sname, S.stname, C.cname 
+    FROM senators S 
+        INNER JOIN corporations C on S.stname = C.stname order by S.sname
+) 
+Select distinct AB.cname, SP.legnum, SP.sname 
+FROM sponsors SP 
+    INNER JOIN affected_by AB on SP.legnum = AB.legnum 
+    INNER JOIN contributes CO on AB.cname = CO.cname AND SP.sname = CO.sname 
+    LEFT JOIN states ST on SP.sname = ST.sname AND AB.cname = ST.cname 
+WHERE ST.sname IS NULL 
+    AND ST.cname IS NULL 
+    AND AB.cname IN (Select cname from corporations where totrev >=10000000)
+    AND SP.sname IN (Select sname from senators where party = 'Republican')
+    AND AB.howafctd='Favorably' ORDER BY AB.cname, SP.legnum, SP.sname;
+
+-----Results:
+         cname          | legnum |   sname   
+------------------------+--------+-----------
+ Acme Mountain Gear     |   1239 | Cochran
+ Acme Mountain Gear     |   1239 | Dole
+ Acme Mountain Gear     |   1239 | Lugar
+ Acme Mountain Gear     |   1239 | Mack
+ Acme Mountain Gear     |   1239 | Stevens
+ Boise Fertilizer, Inc. |   1236 | Murkowski
+ Boise Fertilizer, Inc. |   1236 | Stevens
+ Supro Toxics           |   1236 | Danforth
+ Supro Toxics           |   1236 | Stevens
+(9 rows)
+
+---------------------Query 4---------------------
+-----Query:
+Select distinct cname, 
+    min(cdate) as u, 
+    max(cdate) as v, 
+    count(cname) as w, 
+    sum(amt) as x, 
+    avg(amt) as y, 
+    count(distinct sname) as z 
+FROM contributes 
+GROUP BY cname 
+HAVING avg(amt) > (select avg(amt) from contributes) 
+ORDER BY cname;
+
+-----Results:
+          cname          |     u      |     v      | w  |   x    |           y           | z  
+-------------------------+------------+------------+----+--------+-----------------------+----
+ Acme Mountain Gear      | 1988-08-17 | 1997-03-06 | 11 |  95000 | 8636.3636363636363636 | 10
+ Cogswell Cogs           | 1988-05-19 | 1997-03-06 | 12 | 101000 | 8416.6666666666666667 |  7
+ Crashalot Air           | 1988-08-17 | 1997-03-06 |  5 |  30000 | 6000.0000000000000000 |  4
+ Macon Bacon Corp.       | 1988-08-17 | 1997-03-06 |  6 |  41000 | 6833.3333333333333333 |  5
+ Pattenaude Used Books   | 1988-08-17 | 1997-03-06 |  6 | 121000 |    20166.666666666667 |  5
+ Pluckin Chicken, Inc.   | 1988-08-17 | 1997-03-06 |  6 |  71000 |    11833.333333333333 |  5
+ Rinky Dink Inc.         | 1988-08-17 | 1997-03-06 | 55 | 530000 | 9636.3636363636363636 | 52
+ Spudlys Potato Products | 1988-08-17 | 1997-03-06 |  5 | 120000 |    24000.000000000000 |  4
+ Sunny Grove Pines       | 1988-08-17 | 1997-03-06 |  7 |  47000 | 6714.2857142857142857 |  6
+(9 rows)
+
+---------------------Query 5---------------------
+-----Query:
+SELECT distinct S.sname, 
+    case when SP.sname IS NOT NULL THEN 't' ELSE 'f' END as u, 
+    case when O.sname IS NOT NULL THEN 't' ELSE 'f' END as v, 
+    case when CO.sname IS NOT NULL THEN 't' ELSE 'f' END as w, 
+    case when exists(Select VO.sname from votes VO where VO.howvoted != 'Abstain' AND S.sname = VO.sname) THEN 't' ELSE 'f' END as x 
+FROM senators S 
+    FULL OUTER JOIN sponsors SP on S.sname = SP.sname 
+    FULL OUTER JOIN opposes O ON S.sname = O.sname 
+    FULL OUTER JOIN contributes CO ON S.sname = CO.sname 
+    FULL OUTER JOIN votes V ON S.sname = V.sname 
+ORDER BY S.sname;
+
+-----Results:
+     sname     | u | v | w | x 
+---------------+---+---+---+---
+ Akaka         | t | f | t | t
+ Biden         | t | f | t | t
+ Bond          | t | f | t | t
+ Breaux        | t | f | t | t
+ Brown         | t | f | t | t
+ Bumpers       | t | f | t | t
+ Byrd          | f | t | t | t
+ Coats         | t | f | t | t
+ Cochran       | t | f | t | t
+ Cohen         | t | f | t | t
+ Craig         | t | f | t | t
+ Cranston      | t | f | t | t
+ Danforth      | t | f | t | t
+ DeConcini     | t | f | t | t
+ Dodd          | t | f | t | t
+ Dole          | t | t | t | t
+ Durenberger   | t | f | t | t
+ Feinstein     | t | f | t | t
+ Ford          | t | f | t | t
+ Fowler        | t | f | t | t
+ Gorton        | f | f | t | t
+ Graham        | t | f | t | t
+ Grassley      | t | f | t | t
+ Harkin        | t | f | t | t
+ Heflin        | t | t | t | t
+ Helms         | t | f | t | t
+ Hutchinson    | f | f | t | f
+ Inouye        | t | f | t | t
+ Johnston      | t | f | t | t
+ Kassebaum     | t | f | t | t
+ Kennedy       | t | f | t | t
+ Kerry         | t | f | t | t
+ Levin         | t | f | t | t
+ Lieberman     | t | f | t | t
+ Lott          | t | f | t | t
+ Lugar         | t | f | t | t
+ Mack          | t | f | t | t
+ McCain        | t | f | t | t
+ McConnell     | t | f | t | t
+ Mikulski      | t | f | t | t
+ Mitchell      | t | t | t | t
+ Moseley-Braun | t | f | t | t
+ Murkowski     | t | f | t | t
+ Nunn          | t | f | t | t
+ Pryor         | t | f | t | t
+ Riegle        | t | f | t | t
+ Roth          | t | f | t | t
+ Sarbanes      | t | t | t | t
+ Shelby        | t | f | t | t
+ Simon         | t | f | t | t
+ Simpson       | f | t | t | t
+ Stevens       | t | f | t | t
+ Symms         | t | f | t | t
+ Webster       | f | f | f | f
+ Wellstone     | t | f | t | t
+ Wirth         | t | f | t | t
+(56 rows)
+
+---------------------Query 6---------------------
+-----Query:
+Select distinct S.sname, 
+    sum(case when S.sname = V.sname then 1 else 0 end) as u, 
+    sum(case when V.howvoted = 'Yea' then 1 else 0 end) as v, 
+    sum(case when V.howvoted = 'Nay' then 1 else 0 end) as w, 
+    coalesce(max(case when V.howvoted = 'Yea' then cast(V.vdate as varchar(50)) else null end), 'n/a') as x, 
+    coalesce(max(case when V.howvoted = 'Nay' then cast(V.vdate as varchar(50)) else null end), 'n/a') as y, 
+    coalesce(min(case when V.howvoted = 'Abstain' then cast(V.vdate as varchar(50)) else null end), 'n/a') as z
+FROM senators S 
+    FULL OUTER JOIN votes V on S.sname = V.sname
+GROUP BY S.sname
+ORDER BY S.sname;
+
+
+-----Results:
+     sname     | u  | v  | w  |     x      |     y      |     z      
+---------------+----+----+----+------------+------------+------------
+ Akaka         | 20 | 11 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Biden         | 20 | 10 |  6 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Bond          | 18 | 10 |  6 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Breaux        | 20 |  9 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Brown         | 19 |  9 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Bumpers       | 21 | 12 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Byrd          | 15 |  4 | 11 | 1998-10-10 | 1997-11-12 | n/a
+ Coats         | 18 | 11 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Cochran       | 19 | 12 |  4 | 1998-10-10 | 1994-06-07 | 1994-03-01
+ Cohen         | 21 | 13 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Craig         | 19 | 12 |  4 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Cranston      | 20 | 14 |  3 | 1998-10-10 | 1994-03-06 | 1994-03-01
+ Danforth      | 18 | 11 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ DeConcini     | 20 |  9 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Dodd          | 20 | 12 |  4 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Dole          | 19 | 14 |  2 | 1998-10-10 | 1994-03-04 | 1994-03-01
+ Durenberger   | 19 | 10 |  6 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Feinstein     | 20 | 13 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Ford          | 20 | 11 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Fowler        | 19 | 12 |  4 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Gorton        |  3 |  3 |  0 | 1998-10-10 | n/a        | n/a
+ Graham        | 20 | 12 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Grassley      | 19 | 11 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Harkin        | 20 | 11 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Heflin        | 22 | 13 |  5 | 1998-10-10 | 1995-06-08 | 1994-03-01
+ Helms         | 10 |  4 |  3 | 1998-10-10 | 1995-06-08 | 1994-03-01
+ Hutchinson    |  0 |  0 |  0 | n/a        | n/a        | n/a
+ Inouye        | 20 |  9 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Johnston      | 20 |  8 |  8 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Kassebaum     | 20 |  9 |  9 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Kennedy       | 19 | 10 |  5 | 1998-10-10 | 1997-11-12 | 1993-06-09
+ Kerry         | 19 | 11 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Levin         | 20 | 11 |  6 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Lieberman     | 20 |  9 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Lott          | 21 | 12 |  6 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Lugar         | 18 |  9 |  6 | 1998-10-10 | 1994-05-05 | 1993-06-09
+ Mack          | 19 | 13 |  4 | 1998-10-10 | 1994-05-05 | 1994-03-01
+ McCain        | 19 | 11 |  5 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ McConnell     | 19 | 12 |  4 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Mikulski      | 21 | 14 |  3 | 1998-10-10 | 1994-05-02 | 1993-09-27
+ Mitchell      | 22 | 10 |  7 | 1998-10-10 | 1997-11-12 | 1993-06-01
+ Moseley-Braun | 20 | 14 |  4 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Murkowski     | 19 |  9 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Nunn          | 19 |  9 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Pryor         | 24 | 16 |  4 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Riegle        | 20 | 10 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Roth          | 19 |  9 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Sarbanes      | 20 | 10 |  5 | 1998-10-10 | 1997-11-12 | 1993-10-11
+ Shelby        | 20 |  9 |  7 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Simon         | 20 | 11 |  6 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Simpson       | 19 | 13 |  3 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Stevens       | 19 |  8 |  7 | 1998-10-10 | 1995-06-08 | 1993-10-11
+ Symms         | 19 | 10 |  6 | 1998-10-10 | 1997-11-12 | 1994-03-01
+ Webster       |  0 |  0 |  0 | n/a        | n/a        | n/a
+ Wellstone     | 20 | 10 |  5 | 1998-10-10 | 1997-11-12 | 1993-09-27
+ Wirth         | 20 | 10 |  5 | 1998-10-10 | 1997-11-12 | 1993-10-11
+(56 rows)
+
+---------------------Query 7---------------------
+-----Query:
+SELECT distinct C.cname,
+    (select count(val) from (
+        select distinct CO.sname 
+        from contributes CO where CO.cname = C.cname
+    ) as val) as u,
+    coalesce(
+        (select max(val.sum) from (
+            select CO.sname, sum(amt) as sum from
+            contributes CO
+            where CO.cname = C.cname
+            group by CO.sname
+            ) as val
+        )
+        , 0
+    ) as v,
+    coalesce(
+        (select min(val.sum) from (
+            select CO.sname, sum(amt) as sum from
+            contributes CO
+            where CO.cname = C.cname
+            group by CO.sname
+            ) as val
+        )
+        , 0
+    ) as w,
+    coalesce(
+        (select avg(val.sum) from (
+            select cname, amt as sum from
+            contributes CO
+            where CO.cname = C.cname
+            ) as val
+        )
+        , 0
+    ) as x,
+    (select count(val) from (
+        select AB.cname, howafctd
+        from affected_by AB
+        where AB.cname = C.cname AND howafctd = 'Favorably'
+    ) as val
+    ) as y,
+    (select count(val) from (
+        select AB.cname, howafctd
+        from affected_by AB
+        where AB.cname = C.cname AND howafctd = 'Unfavorably'
+    ) as val
+    ) as z
+FROM corporations C
+ORDER BY C.cname;
+
+-----Results:
+             cname              | u  |   v    |  w   |           x           | y | z 
+--------------------------------+----+--------+------+-----------------------+---+---
+ Acme Mountain Gear             | 10 |  22000 | 1000 | 8636.3636363636363636 | 4 | 0
+ Anchorage Igloos               |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Avalanche Tours                |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Bama Pork Rinds                |  5 |  14000 | 1000 | 3666.6666666666666667 | 1 | 1
+ Bayou Development              |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Big Swamp Realty               |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Bilo Selhi Financial           |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Blammo Toys, Inc.              |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Blo Naway Developers           |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Boise Fertilizer, Inc.         |  4 |  14000 |  200 | 4040.0000000000000000 | 2 | 0
+ Cactus Needle Co.              |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Cogswell Cogs                  |  7 |  41000 | 1000 | 8416.6666666666666667 | 1 | 0
+ Crashalot Air                  |  4 |  14000 | 1000 | 6000.0000000000000000 | 1 | 0
+ Crawdads R Us                  |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Da Bulls Novelty Co.           |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Dead Canary Mining Corp.       |  5 |  14000 |  500 | 3583.3333333333333333 | 2 | 0
+ Dewey, Cheatem, & Howe         |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Downeast Outfitters            |  2 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Flatland Chemicals             |  5 |  14000 | 1000 | 3666.6666666666666667 | 1 | 1
+ Hiccup Liquors                 |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Howard, Fine, &Howard          |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Husky Corn Co.                 |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Jimmys Peanuts                 |  4 |  23000 | 1000 | 5000.0000000000000000 | 1 | 1
+ Levy Associates, Inc.          |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Macon Bacon Corp.              |  5 |  20000 | 1000 | 6833.3333333333333333 | 2 | 0
+ Makalottamula Publishers       | 36 |  14000 | 1000 | 1473.6842105263157895 | 2 | 0
+ Maui Wowie Herbs               |  6 |  14000 | 1000 | 5142.8571428571428571 | 2 | 1
+ Moonshine Fuels                |  5 |  14000 | 1000 | 4433.3333333333333333 | 2 | 0
+ Mucho Smello Perfumes          |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Nev Erpay Insurance            |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Northeast Burro Transport      |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Pattenaude Used Books          |  5 | 100000 | 1000 |    20166.666666666667 | 1 | 1
+ Pluckin Chicken, Inc.          |  5 |  50000 | 1000 |    11833.333333333333 | 1 | 1
+ Random Number Generators       | 22 |   6000 | 1000 | 1280.0000000000000000 | 0 | 0
+ Rinky Dink Inc.                | 52 |  24000 | 1000 | 9636.3636363636363636 | 1 | 0
+ Rockemwell Aerospace           |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Simply SiliconBoards & Implant |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Spacely Sprockets              |  6 |  14000 | 1000 | 2333.3333333333333333 | 1 | 0
+ Spudlys Potato Products        |  4 | 100000 | 1000 |    24000.000000000000 | 1 | 1
+ Stinkemup Plastics             |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Stumpys Gator Farm             |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Sunny Grove Pines              |  6 |  21000 | 1000 | 6714.2857142857142857 | 2 | 0
+ Supro Toxics                   |  5 |  14000 | 1000 | 5166.6666666666666667 | 2 | 1
+ Toto Pet Supply                |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Wee Burnem Oil Fields          |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+(45 rows)
+
+---------------------Query 8---------------------
+-----Query:
+SELECT s1.sname, s2.sname
+FROM senators s1, senators s2
+WHERE s1.sname < s2.sname 
+    AND NOT EXISTS(select (v.vdate,v.legnum)
+        FROM votes v
+        WHERE v.sname = s1.sname AND
+        NOT EXISTS(select (v2.vdate,v2.legnum)
+            FROM votes v2
+            WHERE v2.sname = s2.sname AND
+            v2.vdate = v.vdate AND
+            v2.legnum = v.legnum
+        )
+    ) AND NOT EXISTS(select (v.vdate,v.legnum)
+        FROM votes v
+        WHERE v.sname = s2.sname AND
+        NOT EXISTS(select (v2.vdate,v2.legnum)
+            FROM votes v2
+            WHERE v2.sname = s1.sname AND
+            v2.vdate = v.vdate AND
+            v2.legnum = v.legnum
+        ) 
+    )
+ORDER BY S1.sname, S2.sname;
+
+-----Results:
+     sname     |     sname     
+---------------+---------------
+ Akaka         | Biden
+ Akaka         | Breaux
+ Akaka         | Cranston
+ Akaka         | DeConcini
+ Akaka         | Dodd
+ Akaka         | Feinstein
+ Akaka         | Ford
+ Akaka         | Graham
+ Akaka         | Harkin
+ Akaka         | Inouye
+ Akaka         | Johnston
+ Akaka         | Kassebaum
+ Akaka         | Levin
+ Akaka         | Lieberman
+ Akaka         | Moseley-Braun
+ Akaka         | Riegle
+ Akaka         | Sarbanes
+ Akaka         | Shelby
+ Akaka         | Simon
+ Akaka         | Wellstone
+ Akaka         | Wirth
+ Biden         | Breaux
+ Biden         | Cranston
+ Biden         | DeConcini
+ Biden         | Dodd
+ Biden         | Feinstein
+ Biden         | Ford
+ Biden         | Graham
+ Biden         | Harkin
+ Biden         | Inouye
+ Biden         | Johnston
+ Biden         | Kassebaum
+ Biden         | Levin
+ Biden         | Lieberman
+ Biden         | Moseley-Braun
+ Biden         | Riegle
+ Biden         | Sarbanes
+ Biden         | Shelby
+ Biden         | Simon
+ Biden         | Wellstone
+ Biden         | Wirth
+ Bond          | Coats
+ Bond          | Danforth
+ Bond          | Lugar
+ Breaux        | Cranston
+ Breaux        | DeConcini
+ Breaux        | Dodd
+ Breaux        | Feinstein
+ Breaux        | Ford
+ Breaux        | Graham
+ Breaux        | Harkin
+ Breaux        | Inouye
+ Breaux        | Johnston
+ Breaux        | Kassebaum
+ Breaux        | Levin
+ Breaux        | Lieberman
+ Breaux        | Moseley-Braun
+ Breaux        | Riegle
+ Breaux        | Sarbanes
+ Breaux        | Shelby
+ Breaux        | Simon
+ Breaux        | Wellstone
+ Breaux        | Wirth
+ Brown         | Cochran
+ Brown         | Craig
+ Brown         | Dole
+ Brown         | Durenberger
+ Brown         | Grassley
+ Brown         | Mack
+ Brown         | McCain
+ Brown         | McConnell
+ Brown         | Murkowski
+ Brown         | Roth
+ Brown         | Simpson
+ Brown         | Stevens
+ Brown         | Symms
+ Coats         | Danforth
+ Coats         | Lugar
+ Cochran       | Craig
+ Cochran       | Dole
+ Cochran       | Durenberger
+ Cochran       | Grassley
+ Cochran       | Mack
+ Cochran       | McCain
+ Cochran       | McConnell
+ Cochran       | Murkowski
+ Cochran       | Roth
+ Cochran       | Simpson
+ Cochran       | Stevens
+ Cochran       | Symms
+ Craig         | Dole
+ Craig         | Durenberger
+ Craig         | Grassley
+ Craig         | Mack
+ Craig         | McCain
+ Craig         | McConnell
+ Craig         | Murkowski
+ Craig         | Roth
+ Craig         | Simpson
+ Craig         | Stevens
+ Craig         | Symms
+ Cranston      | DeConcini
+ Cranston      | Dodd
+ Cranston      | Feinstein
+ Cranston      | Ford
+ Cranston      | Graham
+ Cranston      | Harkin
+ Cranston      | Inouye
+ Cranston      | Johnston
+ Cranston      | Kassebaum
+ Cranston      | Levin
+ Cranston      | Lieberman
+ Cranston      | Moseley-Braun
+ Cranston      | Riegle
+ Cranston      | Sarbanes
+ Cranston      | Shelby
+ Cranston      | Simon
+ Cranston      | Wellstone
+ Cranston      | Wirth
+ Danforth      | Lugar
+ DeConcini     | Dodd
+ DeConcini     | Feinstein
+ DeConcini     | Ford
+ DeConcini     | Graham
+ DeConcini     | Harkin
+ DeConcini     | Inouye
+ DeConcini     | Johnston
+ DeConcini     | Kassebaum
+ DeConcini     | Levin
+ DeConcini     | Lieberman
+ DeConcini     | Moseley-Braun
+ DeConcini     | Riegle
+ DeConcini     | Sarbanes
+ DeConcini     | Shelby
+ DeConcini     | Simon
+ DeConcini     | Wellstone
+ DeConcini     | Wirth
+ Dodd          | Feinstein
+ Dodd          | Ford
+ Dodd          | Graham
+ Dodd          | Harkin
+ Dodd          | Inouye
+ Dodd          | Johnston
+ Dodd          | Kassebaum
+ Dodd          | Levin
+ Dodd          | Lieberman
+ Dodd          | Moseley-Braun
+ Dodd          | Riegle
+ Dodd          | Sarbanes
+ Dodd          | Shelby
+ Dodd          | Simon
+ Dodd          | Wellstone
+ Dodd          | Wirth
+ Dole          | Durenberger
+ Dole          | Grassley
+ Dole          | Mack
+ Dole          | McCain
+ Dole          | McConnell
+ Dole          | Murkowski
+ Dole          | Roth
+ Dole          | Simpson
+ Dole          | Stevens
+ Dole          | Symms
+ Durenberger   | Grassley
+ Durenberger   | Mack
+ Durenberger   | McCain
+ Durenberger   | McConnell
+ Durenberger   | Murkowski
+ Durenberger   | Roth
+ Durenberger   | Simpson
+ Durenberger   | Stevens
+ Durenberger   | Symms
+ Feinstein     | Ford
+ Feinstein     | Graham
+ Feinstein     | Harkin
+ Feinstein     | Inouye
+ Feinstein     | Johnston
+ Feinstein     | Kassebaum
+ Feinstein     | Levin
+ Feinstein     | Lieberman
+ Feinstein     | Moseley-Braun
+ Feinstein     | Riegle
+ Feinstein     | Sarbanes
+ Feinstein     | Shelby
+ Feinstein     | Simon
+ Feinstein     | Wellstone
+ Feinstein     | Wirth
+ Ford          | Graham
+ Ford          | Harkin
+ Ford          | Inouye
+ Ford          | Johnston
+ Ford          | Kassebaum
+ Ford          | Levin
+ Ford          | Lieberman
+ Ford          | Moseley-Braun
+ Ford          | Riegle
+ Ford          | Sarbanes
+ Ford          | Shelby
+ Ford          | Simon
+ Ford          | Wellstone
+ Ford          | Wirth
+ Fowler        | Kennedy
+ Fowler        | Kerry
+ Fowler        | Nunn
+ Graham        | Harkin
+ Graham        | Inouye
+ Graham        | Johnston
+ Graham        | Kassebaum
+ Graham        | Levin
+ Graham        | Lieberman
+ Graham        | Moseley-Braun
+ Graham        | Riegle
+ Graham        | Sarbanes
+ Graham        | Shelby
+ Graham        | Simon
+ Graham        | Wellstone
+ Graham        | Wirth
+ Grassley      | Mack
+ Grassley      | McCain
+ Grassley      | McConnell
+ Grassley      | Murkowski
+ Grassley      | Roth
+ Grassley      | Simpson
+ Grassley      | Stevens
+ Grassley      | Symms
+ Harkin        | Inouye
+ Harkin        | Johnston
+ Harkin        | Kassebaum
+ Harkin        | Levin
+ Harkin        | Lieberman
+ Harkin        | Moseley-Braun
+ Harkin        | Riegle
+ Harkin        | Sarbanes
+ Harkin        | Shelby
+ Harkin        | Simon
+ Harkin        | Wellstone
+ Harkin        | Wirth
+ Hutchinson    | Webster
+ Inouye        | Johnston
+ Inouye        | Kassebaum
+ Inouye        | Levin
+ Inouye        | Lieberman
+ Inouye        | Moseley-Braun
+ Inouye        | Riegle
+ Inouye        | Sarbanes
+ Inouye        | Shelby
+ Inouye        | Simon
+ Inouye        | Wellstone
+ Inouye        | Wirth
+ Johnston      | Kassebaum
+ Johnston      | Levin
+ Johnston      | Lieberman
+ Johnston      | Moseley-Braun
+ Johnston      | Riegle
+ Johnston      | Sarbanes
+ Johnston      | Shelby
+ Johnston      | Simon
+ Johnston      | Wellstone
+ Johnston      | Wirth
+ Kassebaum     | Levin
+ Kassebaum     | Lieberman
+ Kassebaum     | Moseley-Braun
+ Kassebaum     | Riegle
+ Kassebaum     | Sarbanes
+ Kassebaum     | Shelby
+ Kassebaum     | Simon
+ Kassebaum     | Wellstone
+ Kassebaum     | Wirth
+ Kennedy       | Kerry
+ Kennedy       | Nunn
+ Kerry         | Nunn
+ Levin         | Lieberman
+ Levin         | Moseley-Braun
+ Levin         | Riegle
+ Levin         | Sarbanes
+ Levin         | Shelby
+ Levin         | Simon
+ Levin         | Wellstone
+ Levin         | Wirth
+ Lieberman     | Moseley-Braun
+ Lieberman     | Riegle
+ Lieberman     | Sarbanes
+ Lieberman     | Shelby
+ Lieberman     | Simon
+ Lieberman     | Wellstone
+ Lieberman     | Wirth
+ Mack          | McCain
+ Mack          | McConnell
+ Mack          | Murkowski
+ Mack          | Roth
+ Mack          | Simpson
+ Mack          | Stevens
+ Mack          | Symms
+ McCain        | McConnell
+ McCain        | Murkowski
+ McCain        | Roth
+ McCain        | Simpson
+ McCain        | Stevens
+ McCain        | Symms
+ McConnell     | Murkowski
+ McConnell     | Roth
+ McConnell     | Simpson
+ McConnell     | Stevens
+ McConnell     | Symms
+ Moseley-Braun | Riegle
+ Moseley-Braun | Sarbanes
+ Moseley-Braun | Shelby
+ Moseley-Braun | Simon
+ Moseley-Braun | Wellstone
+ Moseley-Braun | Wirth
+ Murkowski     | Roth
+ Murkowski     | Simpson
+ Murkowski     | Stevens
+ Murkowski     | Symms
+ Riegle        | Sarbanes
+ Riegle        | Shelby
+ Riegle        | Simon
+ Riegle        | Wellstone
+ Riegle        | Wirth
+ Roth          | Simpson
+ Roth          | Stevens
+ Roth          | Symms
+ Sarbanes      | Shelby
+ Sarbanes      | Simon
+ Sarbanes      | Wellstone
+ Sarbanes      | Wirth
+ Shelby        | Simon
+ Shelby        | Wellstone
+ Shelby        | Wirth
+ Simon         | Wellstone
+ Simon         | Wirth
+ Simpson       | Stevens
+ Simpson       | Symms
+ Stevens       | Symms
+ Wellstone     | Wirth
+(335 rows)
+
+---------------------Query 9---------------------
+-----Query:
+select s.sname
+from senators s
+where not exists(select 1
+    from legislation L
+    where EXISTS(select 1 from votes V where L.legnum = V.legnum 
+        AND V.vdate IS NOT NULL) 
+    AND NOT EXISTS(select 1 from votes V where L.legnum = V.legnum 
+        AND S.sname = V.sname)
+    )
+order by S.sname;
+
+-----Results:
+  sname   
+----------
+ Cohen
+ Mitchell
+ Pryor
+(3 rows)
+
+---------------------Query 10---------------------
+-----Query:
+WITH contribs as (Select distinct cname, sname from contributes)
+SELECT C.cname, 
+    case WHEN EXISTS(Select 1 FROM affected_by ab where C.cname = AB.cname) 
+        THEN avg(age) ELSE 0 END as ageave
+FROM corporations C
+    INNER JOIN contribs CO on CO.cname = C.cname
+    LEFT JOIN senators S on S.sname = CO.sname
+WHERE EXISTS(Select 1 from affected_by AB
+        INNER JOIN votes V on AB.legnum = V.legnum
+        WHERE ((S.sname = V.sname AND AB.howafctd = 'Favorably' AND V.howvoted = 'Yea') 
+            OR (S.sname = V.sname AND AB.howafctd = 'Unfavorably' AND V.howvoted = 'Nay'))
+        AND CASE WHEN EXISTS(Select 1 FROM affected_by abf where C.cname = ABF.cname) 
+            THEN AB.cname = CO.cname ELSE true END
+    )
+Group by C.cname
+order by C.cname;
+
+-----Results:
+             cname              |       ageave        
+--------------------------------+---------------------
+ Acme Mountain Gear             | 63.9000000000000000
+ Anchorage Igloos               | 60.0000000000000000
+ Avalanche Tours                | 59.0000000000000000
+ Bama Pork Rinds                | 58.4000000000000000
+ Bayou Development              | 59.3333333333333333
+ Big Swamp Realty               | 59.2500000000000000
+ Bilo Selhi Financial           | 58.7500000000000000
+ Blammo Toys, Inc.              | 59.7500000000000000
+ Blo Naway Developers           | 59.3333333333333333
+ Boise Fertilizer, Inc.         | 56.7500000000000000
+ Cactus Needle Co.              | 57.7500000000000000
+ Cogswell Cogs                  | 55.8571428571428571
+ Crashalot Air                  | 60.5000000000000000
+ Crawdads R Us                  | 60.2500000000000000
+ Da Bulls Novelty Co.           | 56.2500000000000000
+ Dead Canary Mining Corp.       | 55.4000000000000000
+ Dewey, Cheatem, & Howe         | 56.0000000000000000
+ Downeast Outfitters            | 51.5000000000000000
+ Flatland Chemicals             | 62.2000000000000000
+ Hiccup Liquors                 | 59.3333333333333333
+ Howard, Fine, &Howard          | 59.3333333333333333
+ Husky Corn Co.                 | 57.2500000000000000
+ Jimmys Peanuts                 | 58.5000000000000000
+ Levy Associates, Inc.          | 59.3333333333333333
+ Macon Bacon Corp.              | 61.6000000000000000
+ Makalottamula Publishers       | 54.6896551724137931
+ Maui Wowie Herbs               | 57.3333333333333333
+ Moonshine Fuels                | 56.0000000000000000
+ Mucho Smello Perfumes          | 56.7500000000000000
+ Nev Erpay Insurance            | 59.3333333333333333
+ Northeast Burro Transport      | 59.3333333333333333
+ Pattenaude Used Books          | 58.6000000000000000
+ Pluckin Chicken, Inc.          | 61.0000000000000000
+ Random Number Generators       |                   0
+ Rinky Dink Inc.                | 56.4615384615384615
+ Rockemwell Aerospace           | 59.5000000000000000
+ Simply SiliconBoards & Implant | 59.3333333333333333
+ Spacely Sprockets              | 58.5000000000000000
+ Spudlys Potato Products        | 56.0000000000000000
+ Stinkemup Plastics             | 59.3333333333333333
+ Stumpys Gator Farm             | 58.0000000000000000
+ Sunny Grove Pines              | 56.0000000000000000
+ Supro Toxics                   | 60.4000000000000000
+ Toto Pet Supply                | 56.0000000000000000
+ Wee Burnem Oil Fields          | 61.2500000000000000
+(45 rows)
+
+---------------------Query 11---------------------
+-----Query:
+WITH effects as (
+    Select distinct cname, sname, howafctd 
+    from sponsors SP 
+        INNER JOIN affected_by AB on AB.legnum = SP.legnum 
+    where howafctd = 'Favorably'
+)
+SELECT S.sname, 
+    case WHEN EXISTS(Select 1 FROM sponsors SP where S.sname = SP.sname) 
+        THEN sum(case when  howafctd = 'Favorably' THEN amt ELSE 0 END) 
+        ELSE 0 END as sum
+FROM Senators S
+    LEFT JOIN contributes CO on S.sname = CO.sname
+    LEFT JOIN effects E on E.cname = CO.cname AND E.sname = S.sname
+GROUP BY S.sname
+Order by S.sname;
+
+-----Results:
+     sname     |  sum  
+---------------+-------
+ Akaka         |  1000
+ Biden         |  1000
+ Bond          |     0
+ Breaux        |  1000
+ Brown         |     0
+ Bumpers       |  1000
+ Byrd          |     0
+ Coats         |     0
+ Cochran       |  9000
+ Cohen         |     0
+ Craig         |     0
+ Cranston      | 10000
+ Danforth      |  1000
+ DeConcini     |  1000
+ Dodd          |  1000
+ Dole          |  9000
+ Durenberger   |     0
+ Feinstein     |  1000
+ Ford          |  1000
+ Fowler        |  1000
+ Gorton        |     0
+ Graham        |  1000
+ Grassley      |     0
+ Harkin        |  1000
+ Heflin        | 10000
+ Helms         | 15000
+ Hutchinson    |     0
+ Inouye        |  1000
+ Johnston      |  1000
+ Kassebaum     |     0
+ Kennedy       |  1000
+ Kerry         |  1000
+ Levin         |  1000
+ Lieberman     |  1000
+ Lott          |     0
+ Lugar         |  9000
+ Mack          | 10000
+ McCain        |  5000
+ McConnell     |     0
+ Mikulski      | 10000
+ Mitchell      |  1000
+ Moseley-Braun |  1000
+ Murkowski     |   200
+ Nunn          |  1000
+ Pryor         |  1000
+ Riegle        |  1000
+ Roth          |     0
+ Sarbanes      |  1000
+ Shelby        |  1000
+ Simon         |  1000
+ Simpson       |     0
+ Stevens       | 78000
+ Symms         |     0
+ Webster       |     0
+ Wellstone     |  1000
+ Wirth         |  1000
+(56 rows)
+
+---------------------Query 12---------------------
+-----Query:
+WITH amounts as (
+    Select distinct CO.cname as cname, S.sname, 
+        case when sum(amt) > 0 then sum(amt)
+        else 0 end as sum
+    FROM senators S
+        LEFT JOIN contributes CO on S.sname = CO.sname
+        LEFT JOIN corporations C on CO.cname = C.cname
+    GROUP BY CO.cname, S.sname
+),
+effects as (
+    SELECT distinct A.cname as cname, 
+        (SELECT count(favaffecting) FROM (select AB.cname, AB.howafctd
+            from affected_by AB
+            where AB.cname = A.cname AND howafctd = 'Favorably'
+        ) as favaffecting) as fav, 
+        (SELECT count(unfavaffecting) FROM (select AB.cname, AB.howafctd
+            from affected_by AB
+            where AB.cname = A.cname AND howafctd = 'Unfavorably'
+        ) as unfavaffecting) as unfav
+    FROM affected_by A
+)
+SELECT distinct C.cname,
+    (select count(val) from (
+        select distinct sname from amounts A where A.cname = C.cname) as val) as u,
+    coalesce((select max(a.sum) from amounts a where a.cname = C.cname), 0) as v,
+    coalesce((select min(a.sum) from amounts a where a.cname = C.cname), 0) as w,
+    coalesce(
+        (select 
+            cast((select sum(a.sum) from amounts a where a.cname = C.cname) as decimal)
+            / 
+            cast((select count(val) from (select sname, amt from contributes CO where CO.cname = C.cname) as val) as decimal))
+    , 0) as x,
+    coalesce((Select e.fav FROM effects E where e.cname = C.cname),0) as y,
+    coalesce((Select e.unfav FROM effects E where e.cname = C.cname),0) as z
+FROM corporations C
+ORDER BY C.cname;
+
+-----Results:
+             cname              | u  |   v    |  w   |           x           | y | z 
+--------------------------------+----+--------+------+-----------------------+---+---
+ Acme Mountain Gear             | 10 |  22000 | 1000 | 8636.3636363636363636 | 4 | 0
+ Anchorage Igloos               |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Avalanche Tours                |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Bama Pork Rinds                |  5 |  14000 | 1000 | 3666.6666666666666667 | 1 | 1
+ Bayou Development              |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Big Swamp Realty               |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Bilo Selhi Financial           |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Blammo Toys, Inc.              |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Blo Naway Developers           |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Boise Fertilizer, Inc.         |  4 |  14000 |  200 | 4040.0000000000000000 | 2 | 0
+ Cactus Needle Co.              |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Cogswell Cogs                  |  7 |  41000 | 1000 | 8416.6666666666666667 | 1 | 0
+ Crashalot Air                  |  4 |  14000 | 1000 | 6000.0000000000000000 | 1 | 0
+ Crawdads R Us                  |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Da Bulls Novelty Co.           |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Dead Canary Mining Corp.       |  5 |  14000 |  500 | 3583.3333333333333333 | 2 | 0
+ Dewey, Cheatem, & Howe         |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Downeast Outfitters            |  2 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Flatland Chemicals             |  5 |  14000 | 1000 | 3666.6666666666666667 | 1 | 1
+ Hiccup Liquors                 |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Howard, Fine, &Howard          |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Husky Corn Co.                 |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Jimmys Peanuts                 |  4 |  23000 | 1000 | 5000.0000000000000000 | 1 | 1
+ Levy Associates, Inc.          |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Macon Bacon Corp.              |  5 |  20000 | 1000 | 6833.3333333333333333 | 2 | 0
+ Makalottamula Publishers       | 36 |  14000 | 1000 | 1473.6842105263157895 | 2 | 0
+ Maui Wowie Herbs               |  6 |  14000 | 1000 | 5142.8571428571428571 | 2 | 1
+ Moonshine Fuels                |  5 |  14000 | 1000 | 4433.3333333333333333 | 2 | 0
+ Mucho Smello Perfumes          |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Nev Erpay Insurance            |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Northeast Burro Transport      |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Pattenaude Used Books          |  5 | 100000 | 1000 |    20166.666666666667 | 1 | 1
+ Pluckin Chicken, Inc.          |  5 |  50000 | 1000 |    11833.333333333333 | 1 | 1
+ Random Number Generators       | 22 |   6000 | 1000 | 1280.0000000000000000 | 0 | 0
+ Rinky Dink Inc.                | 52 |  24000 | 1000 | 9636.3636363636363636 | 1 | 0
+ Rockemwell Aerospace           |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Simply SiliconBoards & Implant |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Spacely Sprockets              |  6 |  14000 | 1000 | 2333.3333333333333333 | 1 | 0
+ Spudlys Potato Products        |  4 | 100000 | 1000 |    24000.000000000000 | 1 | 1
+ Stinkemup Plastics             |  3 |  14000 | 1000 | 5000.0000000000000000 | 1 | 0
+ Stumpys Gator Farm             |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Sunny Grove Pines              |  6 |  21000 | 1000 | 6714.2857142857142857 | 2 | 0
+ Supro Toxics                   |  5 |  14000 | 1000 | 5166.6666666666666667 | 2 | 1
+ Toto Pet Supply                |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+ Wee Burnem Oil Fields          |  4 |  14000 | 1000 | 4200.0000000000000000 | 1 | 0
+(45 rows)
+
+---------------------Query 13---------------------
+-----Query:
+SELECT vdate, legnum, 
+    count(case when (party = 'Republican' AND howvoted = 'Yea') then 1 else null end) as ryeas, 
+    count(case when (party = 'Republican' AND howvoted = 'Nay') then 1 else null end) as rnays, 
+    count(case when (party = 'Republican' AND howvoted = 'Abstain') then 1 else null end) as rabs, 
+    count(case when (party = 'Democrat' AND howvoted = 'Yea') then 1 else null end) as dyeas, 
+    count(case when (party = 'Democrat' AND howvoted = 'Nay') then 1 else null end) as dnays, 
+    count(case when (party = 'Democrat' AND howvoted = 'Abstain') then 1 else null end) as dabs, 
+    count(case when (party != 'Democrat' AND party != 'Republican' AND howvoted = 'Yea') then 1 else null end) as oyeas, 
+    count(case when (party != 'Democrat' AND party != 'Republican' AND howvoted = 'Nay') then 1 else null end) as onays, 
+    count(case when (party != 'Democrat' AND party != 'Republican' AND howvoted = 'Abstain') then 1 else null end) as oabs
+FROM votes V 
+    LEFT JOIN senators S on V.sname = S.sname
+GROUP BY (vdate,legnum)
+ORDER BY vdate, legnum;
+
+-----Results:
+   vdate    | legnum | ryeas | rnays | rabs | dyeas | dnays | dabs | oyeas | onays | oabs 
+------------+--------+-------+-------+------+-------+-------+------+-------+-------+------
+ 1993-06-01 |   1243 |     1 |     0 |    0 |     2 |     1 |    0 |     0 |     0 |    0
+ 1993-06-01 |   1244 |     0 |     1 |    0 |     1 |     0 |    1 |     0 |     0 |    0
+ 1993-06-09 |   1241 |    16 |     4 |    1 |    22 |     8 |    1 |     0 |     0 |    0
+ 1993-08-01 |   1245 |     0 |     0 |    0 |     1 |     0 |    0 |     0 |     0 |    0
+ 1993-09-27 |   1242 |    19 |     2 |    0 |    20 |     9 |    2 |     0 |     0 |    0
+ 1993-10-01 |   1243 |     2 |     0 |    0 |     4 |     0 |    0 |     0 |     0 |    0
+ 1993-10-11 |   1234 |    12 |     8 |    1 |    17 |    12 |    2 |     0 |     0 |    0
+ 1994-03-01 |   1240 |    21 |     0 |    0 |    31 |     1 |    0 |     0 |     0 |    0
+ 1994-03-01 |   1245 |     0 |     0 |   21 |     0 |     0 |   31 |     0 |     0 |    0
+ 1994-03-02 |   1245 |     0 |    21 |    0 |     1 |    31 |    0 |     0 |     0 |    0
+ 1994-03-03 |   1245 |     1 |     0 |   16 |     7 |     0 |   19 |     0 |     0 |    0
+ 1994-03-04 |   1245 |     0 |    21 |    0 |     1 |     0 |   31 |     0 |     0 |    0
+ 1994-03-05 |   1245 |     0 |     1 |    0 |     3 |     0 |   28 |     0 |     0 |    0
+ 1994-03-06 |   1243 |     1 |     0 |   20 |     3 |    28 |    0 |     0 |     0 |    0
+ 1994-03-10 |   1245 |    21 |     0 |    0 |    31 |     0 |    0 |     0 |     0 |    0
+ 1994-03-22 |   1235 |    15 |     6 |    0 |    19 |    12 |    0 |     0 |     0 |    0
+ 1994-03-24 |   1236 |    11 |    10 |    0 |    27 |     4 |    0 |     0 |     0 |    0
+ 1994-05-02 |   1237 |    15 |     6 |    0 |    20 |    11 |    0 |     0 |     0 |    0
+ 1994-05-02 |   1238 |    20 |     1 |    0 |    17 |    14 |    0 |     0 |     0 |    0
+ 1994-05-05 |   1239 |    13 |     8 |    0 |    21 |    10 |    0 |     0 |     0 |    0
+ 1994-06-07 |   1240 |    15 |     6 |    0 |    24 |     7 |    0 |     0 |     0 |    0
+ 1995-06-08 |   1248 |    20 |     2 |    0 |    30 |     2 |    0 |     0 |     0 |    0
+ 1997-11-12 |   1247 |     6 |    16 |    0 |     4 |    28 |    0 |     0 |     0 |    0
+ 1998-10-10 |   1246 |    22 |     0 |    0 |    32 |     0 |    0 |     0 |     0 |    0
+(24 rows)
+
+---------------------Query 14---------------------
+-----Query:
+WITH senvotes as (
+    SELECT V.legnum, V.vdate, S.sname, S.party, V.howvoted
+    FROM votes V
+        LEFT JOIN senators S on V.sname = S.sname
+),
+results1 as (
+    SELECT legnum, vdate,
+        case 
+            when (count(case when party = 'Democrat' AND howvoted = 'Yea' then 1 else null end) 
+                > count(case when party = 'Democrat' AND howvoted = 'Nay' then 1 else null end)) then 'Yea' 
+            when (count(case when party = 'Democrat' AND howvoted = 'Yea' then 1 else null end) 
+                = count(case when party = 'Democrat' AND howvoted = 'Nay' then 1 else null end)) then 'Even' 
+            else 'Nay' 
+        end as w,
+        case 
+            when (count(case when party = 'Republican' AND howvoted = 'Yea' then 1 else null end) 
+                > count(case when party = 'Republican' AND howvoted = 'Nay' then 1 else null end)) then 'Yea' 
+            when (count(case when party = 'Republican' AND howvoted = 'Yea' then 1 else null end) 
+                = count(case when party = 'Republican' AND howvoted = 'Nay' then 1 else null end)) then 'Even' 
+            else 'Nay' 
+        end as y
+    FROM senvotes
+    GROUP BY (vdate, legnum)
+), 
+results2 as (
+    SELECT r1.legnum, r1.vdate, w,
+        case 
+            when w = 'Yea' then (
+                    cast((select count(val) from (
+                    SELECT 1
+                    FROM senvotes sv
+                    WHERE sv.legnum = r1.legnum AND sv.vdate = r1.vdate 
+                        AND party = 'Democrat' 
+                        AND howvoted = 'Yea'
+                ) as val) as double precision)
+                / cast((select count(val) from (
+                    SELECT 1
+                    FROM senvotes sv
+                    WHERE sv.legnum = r1.legnum AND sv.vdate = r1.vdate 
+                        AND party = 'Democrat' 
+                        AND howvoted != 'Abstain'
+                ) as val) as double precision)
+            )
+            when w = 'Nay' then (
+                    cast((select count(val) from (
+                    SELECT 1
+                    FROM senvotes sv
+                    WHERE sv.legnum = r1.legnum AND sv.vdate = r1.vdate 
+                        AND party = 'Democrat' AND howvoted = 'Nay'
+                ) as val) as double precision)
+                / cast((select count(val) from (
+                    SELECT 1
+                    FROM senvotes sv
+                    WHERE sv.legnum = r1.legnum AND sv.vdate = r1.vdate AND party = 'Democrat' 
+                        AND howvoted != 'Abstain'
+                ) as val) as double precision)
+            )
+            else 0.500 
+        end as x,
+        y,
+        case 
+            when y = 'Yea' then (
+                    cast((select count(val) from (
+                    SELECT 1
+                    FROM senvotes sv
+                    WHERE sv.legnum = r1.legnum AND sv.vdate = r1.vdate AND party = 'Republican' 
+                        AND howvoted = 'Yea'
+                ) as val) as double precision)
+                / cast((select count(val) from (
+                    SELECT 1
+                    FROM senvotes sv
+                    WHERE sv.legnum = r1.legnum AND sv.vdate = r1.vdate AND party = 'Republican' 
+                        AND howvoted != 'Abstain'
+                ) as val) as double precision)
+            )
+            when y = 'Nay' then (
+                    cast((select count(val) from (
+                    SELECT 1
+                    FROM senvotes sv
+                    WHERE sv.legnum = r1.legnum AND sv.vdate = r1.vdate AND party = 'Republican' 
+                        AND howvoted = 'Nay'
+                ) as val) as double precision)
+                / cast((select count(val) from (
+                    SELECT 1
+                    FROM senvotes sv
+                    WHERE sv.legnum = r1.legnum AND sv.vdate = r1.vdate AND party = 'Republican' 
+                        AND howvoted != 'Abstain'
+                ) as val) as double precision)
+            )
+            else 0.500 
+        end as z
+    FROM results1 r1
+)
+SELECT distinct legnum, vdate, w, x, y, z,
+    case
+        when (w != 'Even' AND y != 'Even' AND w != y AND x >= 0.6 AND z >= 0.6) then 't' 
+        else 'f'
+    end as partisan
+FROM results2
+ORDER BY legnum, vdate;
+
+-----Results:
+ legnum |   vdate    |  w   |         x         |  y   |         z         | partisan 
+--------+------------+------+-------------------+------+-------------------+----------
+   1234 | 1993-10-11 | Yea  | 0.586206896551724 | Yea  |               0.6 | f
+   1235 | 1994-03-22 | Yea  | 0.612903225806452 | Yea  | 0.714285714285714 | f
+   1236 | 1994-03-24 | Yea  | 0.870967741935484 | Yea  | 0.523809523809524 | f
+   1237 | 1994-05-02 | Yea  | 0.645161290322581 | Yea  | 0.714285714285714 | f
+   1238 | 1994-05-02 | Yea  | 0.548387096774194 | Yea  | 0.952380952380952 | f
+   1239 | 1994-05-05 | Yea  |  0.67741935483871 | Yea  | 0.619047619047619 | f
+   1240 | 1994-03-01 | Yea  |           0.96875 | Yea  |                 1 | f
+   1240 | 1994-06-07 | Yea  | 0.774193548387097 | Yea  | 0.714285714285714 | f
+   1241 | 1993-06-09 | Yea  | 0.733333333333333 | Yea  |               0.8 | f
+   1242 | 1993-09-27 | Yea  | 0.689655172413793 | Yea  | 0.904761904761905 | f
+   1243 | 1993-06-01 | Yea  | 0.666666666666667 | Yea  |                 1 | f
+   1243 | 1993-10-01 | Yea  |                 1 | Yea  |                 1 | f
+   1243 | 1994-03-06 | Nay  | 0.903225806451613 | Yea  |                 1 | t
+   1244 | 1993-06-01 | Yea  |                 1 | Nay  |                 1 | t
+   1245 | 1993-08-01 | Yea  |                 1 | Even |               0.5 | f
+   1245 | 1994-03-01 | Even |               0.5 | Even |               0.5 | f
+   1245 | 1994-03-02 | Nay  |           0.96875 | Nay  |                 1 | f
+   1245 | 1994-03-03 | Yea  |                 1 | Yea  |                 1 | f
+   1245 | 1994-03-04 | Yea  |                 1 | Nay  |                 1 | t
+   1245 | 1994-03-05 | Yea  |                 1 | Nay  |                 1 | t
+   1245 | 1994-03-10 | Yea  |                 1 | Yea  |                 1 | f
+   1246 | 1998-10-10 | Yea  |                 1 | Yea  |                 1 | f
+   1247 | 1997-11-12 | Nay  |             0.875 | Nay  | 0.727272727272727 | f
+   1248 | 1995-06-08 | Yea  |            0.9375 | Yea  | 0.909090909090909 | f
+(24 rows)
+
+---------------------Query 15---------------------
+-----Query:
+WITH contribs as (
+    SELECT * 
+    FROM contributes C
+        LEFT JOIN affected_by A on C.cname = A.cname
+), money as(
+    SELECT distinct VO.vdate, VO.legnum, 
+        coalesce((select sum(val.amt) 
+            from (select amt as amt from contribs CO 
+            where CO.cdate < VO.vdate AND CO.howafctd = 'Favorably' 
+                AND CO.legnum = VO.legnum) as val)
+        ,0) as moneyfor,
+        coalesce((select sum(val.amt) 
+            from (select amt as amt from contribs CO 
+            where CO.cdate < VO.vdate AND CO.howafctd = 'Unfavorably' 
+                AND CO.legnum = VO.legnum) as val)
+        ,0) as moneyagainst,
+        case when (
+        (select count(val) from (
+            select * from votes V
+            where VO.legnum = V.legnum AND VO.vdate = V.vdate AND V.howvoted = 'Yea'
+        ) as val) > (select count(val) from (
+            select * from votes V
+            where VO.legnum = V.legnum AND VO.vdate = V.vdate 
+                AND (V.howvoted = 'Nay' OR V.howvoted = 'Abstain')) as val)
+        ) then 't' else 'f' end as passed
+    FROM votes VO
+    GROUP BY (VO.legnum, VO.vdate)
+)
+SELECT vdate, legnum, moneyfor, moneyagainst, passed,
+    case when (moneyfor > moneyagainst AND passed = 't') 
+        OR (moneyagainst > moneyfor AND passed = 'f') then 't' else 'f' 
+    end as moneyTalks
+FROM money
+ORDER BY vdate, legnum;
+
+-----Results:
+   vdate    | legnum | moneyfor | moneyagainst | passed | moneytalks 
+------------+--------+----------+--------------+--------+------------
+ 1993-06-01 |   1243 |        0 |            0 | t      | f
+ 1993-06-01 |   1244 |        0 |            0 | f      | f
+ 1993-06-09 |   1241 |    34000 |            0 | t      | t
+ 1993-08-01 |   1245 |        0 |            0 | t      | f
+ 1993-09-27 |   1242 |    41600 |       114000 | t      | f
+ 1993-10-01 |   1243 |        0 |            0 | t      | f
+ 1993-10-11 |   1234 |    29000 |        64000 | t      | f
+ 1994-03-01 |   1240 |        0 |       154000 | t      | f
+ 1994-03-01 |   1245 |        0 |            0 | f      | f
+ 1994-03-02 |   1245 |        0 |            0 | f      | f
+ 1994-03-03 |   1245 |        0 |            0 | f      | f
+ 1994-03-04 |   1245 |        0 |            0 | f      | f
+ 1994-03-05 |   1245 |        0 |            0 | f      | f
+ 1994-03-06 |   1243 |        0 |            0 | f      | f
+ 1994-03-10 |   1245 |        0 |            0 | t      | f
+ 1994-03-22 |   1235 |    20500 |            0 | t      | t
+ 1994-03-24 |   1236 |    95200 |            0 | t      | t
+ 1994-05-02 |   1237 |    23000 |            0 | t      | t
+ 1994-05-02 |   1238 |        0 |        50000 | t      | f
+ 1994-05-05 |   1239 |   117000 |        21000 | t      | t
+ 1994-06-07 |   1240 |        0 |       154000 | t      | f
+ 1995-06-08 |   1248 |        0 |        30000 | t      | f
+ 1997-11-12 |   1247 |    95000 |            0 | f      | f
+ 1998-10-10 |   1246 |  1903300 |            0 | t      | t
+(24 rows)
+
